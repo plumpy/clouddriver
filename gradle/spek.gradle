@@ -14,11 +14,8 @@
  * limitations under the License.
  */
 
-apply plugin: "org.junit.platform.gradle.plugin"
-
 repositories {
   jcenter()
-  maven { url "https://dl.bintray.com/jetbrains/spek" }
 }
 
 dependencies {
@@ -34,12 +31,4 @@ dependencies {
 
   testImplementation "com.nhaarman.mockitokotlin2:mockito-kotlin"
   testImplementation "io.strikt:strikt-core"
-}
-
-junitPlatform {
-  filters {
-    engines {
-      include "spek", "junit-vintage", "junit-jupiter"
-    }
-  }
 }
