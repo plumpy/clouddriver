@@ -27,6 +27,7 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.google.protobuf.util.JsonFormat;
 import com.netflix.frigga.Names;
 import com.netflix.frigga.autoscaling.AutoScalingGroupNameBuilder;
@@ -170,11 +171,9 @@ public class TitusV2ClusterCachingAgent
   }
 
   @Override
-  public Optional<Map<String, String>> getCacheKeyPatterns() {
-    Map<String, String> cachekeyPatterns = new HashMap<>();
-    cachekeyPatterns.put(
+  public Map<String, String> getCacheKeyPatterns() {
+    return ImmutableMap.of(
         SERVER_GROUPS.ns, Keys.getServerGroupV2Key("*", "*", account.getName(), region.getName()));
-    return Optional.of(cachekeyPatterns);
   }
 
   @Override

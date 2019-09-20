@@ -18,15 +18,21 @@ package com.netflix.spinnaker.clouddriver.titus.caching.agents;
 
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
-import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.HEALTH;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.INSTANCES;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.SERVER_GROUPS;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.histogram.PercentileTimer;
-import com.netflix.spinnaker.cats.agent.*;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
@@ -39,7 +45,13 @@ import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion;
 import com.netflix.spinnaker.clouddriver.titus.client.model.Task;
 import com.netflix.spinnaker.clouddriver.titus.client.model.TaskState;
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials;
-import java.util.*;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.inject.Provider;
@@ -108,13 +120,10 @@ public class TitusInstanceCachingAgent implements CachingAgent {
   }
 
   @Override
-  public Optional<Map<String, String>> getCacheKeyPatterns() {
-    Map<String, String> cachekeyPatterns = new HashMap<>();
-    cachekeyPatterns.put(
-        SERVER_GROUPS.ns, Keys.getServerGroupV2Key("*", "*", account.getName(), region.getName()));
-    cachekeyPatterns.put(
+  public Map<String, String> getCacheKeyPatterns() {
+    return ImmutableMap.of(
+        SERVER_GROUPS.ns, Keys.getServerGroupV2Key("*", "*", account.getName(), region.getName()),
         INSTANCES.ns, Keys.getInstanceV2Key("*", account.getName(), region.getName()));
-    return Optional.of(cachekeyPatterns);
   }
 
   @Override

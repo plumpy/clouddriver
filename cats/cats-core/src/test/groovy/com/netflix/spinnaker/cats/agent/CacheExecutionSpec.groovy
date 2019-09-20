@@ -16,13 +16,13 @@
 
 package com.netflix.spinnaker.cats.agent
 
-import com.netflix.spinnaker.cats.cache.CacheData
+import com.google.common.collect.ImmutableMap
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import spock.lang.Specification
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
+import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
 
 class CacheExecutionSpec extends Specification {
   def providerRegistry = Mock(ProviderRegistry)
@@ -77,7 +77,7 @@ class CacheExecutionSpec extends Specification {
         AUTHORITATIVE.forType("securityGroups")
       ]
     }
-    1 * cachingAgent.getCacheKeyPatterns() >> { return Optional.empty() }
+    1 * cachingAgent.getCacheKeyPatterns() >> { return ImmutableMap.of() }
     1 * providerRegistry.getProviderCache(_) >> { return providerCache }
 
     result.evictions.isEmpty()

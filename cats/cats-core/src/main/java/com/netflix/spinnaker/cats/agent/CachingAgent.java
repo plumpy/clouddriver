@@ -16,6 +16,7 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import com.google.common.collect.ImmutableMap;
 import com.netflix.spinnaker.cats.cache.AgentIntrospection;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.CacheIntrospectionStore;
@@ -26,7 +27,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashSet;
 import java.util.Map;
-import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import org.slf4j.Logger;
@@ -53,8 +53,8 @@ public interface CachingAgent extends Agent {
    */
   CacheResult loadData(ProviderCache providerCache);
 
-  default Optional<Map<String, String>> getCacheKeyPatterns() {
-    return Optional.empty();
+  default Map<String, String> getCacheKeyPatterns() {
+    return ImmutableMap.of();
   }
 
   default AgentExecution getAgentExecution(ProviderRegistry providerRegistry) {
@@ -96,39 +96,37 @@ public interface CachingAgent extends Agent {
         }
       }
 
-      Optional<Map<String, String>> cacheKeyPatterns = cachingAgent.getCacheKeyPatterns();
-      if (cacheKeyPatterns.isPresent()) {
-        for (String type : authoritative) {
-          String cacheKeyPatternForType = cacheKeyPatterns.get().get(type);
-          if (cacheKeyPatternForType != null) {
-            try {
-              Set<String> cachedIdentifiersForType =
-                  result.getCacheResults().get(type).stream()
-                      .map(CacheData::getId)
-                      .collect(Collectors.toSet());
+      Map<String, String> cacheKeyPatterns = cachingAgent.getCacheKeyPatterns();
+      for (String type : authoritative) {
+        String cacheKeyPatternForType = cacheKeyPatterns.get(type);
+        if (cacheKeyPatternForType != null) {
+          try {
+            Set<String> cachedIdentifiersForType =
+                result.getCacheResults().get(type).stream()
+                    .map(CacheData::getId)
+                    .collect(Collectors.toSet());
 
-              Collection<String> evictableIdentifiers =
-                  cache.filterIdentifiers(type, cacheKeyPatternForType).stream()
-                      .filter(i -> !cachedIdentifiersForType.contains(i))
-                      .collect(Collectors.toSet());
+            Collection<String> evictableIdentifiers =
+                cache.filterIdentifiers(type, cacheKeyPatternForType).stream()
+                    .filter(i -> !cachedIdentifiersForType.contains(i))
+                    .collect(Collectors.toSet());
 
-              // any key that existed previously but was not re-cached by this agent is considered
-              // evictable
-              if (!evictableIdentifiers.isEmpty()) {
-                Collection<String> evictionsForType =
-                    result.getEvictions().computeIfAbsent(type, evictableKeys -> new ArrayList<>());
-                evictionsForType.addAll(evictableIdentifiers);
+            // any key that existed previously but was not re-cached by this agent is considered
+            // evictable
+            if (!evictableIdentifiers.isEmpty()) {
+              Collection<String> evictionsForType =
+                  result.getEvictions().computeIfAbsent(type, evictableKeys -> new ArrayList<>());
+              evictionsForType.addAll(evictableIdentifiers);
 
-                log.debug("Evicting stale identifiers: {}", evictableIdentifiers);
-              }
-            } catch (Exception e) {
-              log.error(
-                  "Failed to check for stale identifiers (type: {}, pattern: {}, agent: {})",
-                  type,
-                  cacheKeyPatternForType,
-                  agent,
-                  e);
+              log.debug("Evicting stale identifiers: {}", evictableIdentifiers);
             }
+          } catch (Exception e) {
+            log.error(
+                "Failed to check for stale identifiers (type: {}, pattern: {}, agent: {})",
+                type,
+                cacheKeyPatternForType,
+                agent,
+                e);
           }
         }
       }

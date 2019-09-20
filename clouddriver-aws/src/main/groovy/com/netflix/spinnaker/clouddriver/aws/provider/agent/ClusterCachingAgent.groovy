@@ -130,7 +130,7 @@ class ClusterCachingAgent implements CachingAgent, OnDemandAgent, AccountAware, 
   }
 
   @Override
-  Optional<Map<String, String>> getCacheKeyPatterns() {
+  Map<String, String> getCacheKeyPatterns() {
     return [
       (SERVER_GROUPS.ns): Keys.getServerGroupKey('*', '*', account.name, region)
     ]
