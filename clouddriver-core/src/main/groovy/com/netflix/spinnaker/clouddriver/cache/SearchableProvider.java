@@ -86,9 +86,7 @@ public interface SearchableProvider extends Provider {
     return agents.stream()
         .filter(CachingAgent.class::isInstance)
         .map(CachingAgent.class::cast)
-        .anyMatch(
-            ca ->
-                ca.getProvidedDataTypes().stream().anyMatch(pdt -> pdt.getTypeName().equals(type)));
+        .anyMatch(ca -> ca.getDataTypes().getAllDeclaredTypes().contains(type));
   }
 
   /**

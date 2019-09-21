@@ -22,8 +22,6 @@ import com.netflix.spinnaker.cats.provider.ProviderCache
 import com.netflix.spinnaker.cats.provider.ProviderRegistry
 import spock.lang.Specification
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE
-
 class CacheExecutionSpec extends Specification {
   def providerRegistry = Mock(ProviderRegistry)
   def cachingAgent = Mock(CachingAgent)
@@ -40,17 +38,15 @@ class CacheExecutionSpec extends Specification {
     cacheExecution.storeAgentResult(cachingAgent, result)
 
     then:
-    1 * cachingAgent.getProvidedDataTypes() >> {
-      return [
-        AUTHORITATIVE.forType("securityGroups")
-      ]
+    _ * cachingAgent.getDataTypes() >> {
+      return CachingAgentDataTypes.builder().authoritativeTypes("securityGroups").build()
     }
-    1 * cachingAgent.getCacheKeyPatterns() >> {
+    _ * cachingAgent.getCacheKeyPatterns() >> {
       return [
         "securityGroups": "securityGroups:*:test:us-west-1"
       ]
     }
-    1 * providerCache.filterIdentifiers("securityGroups", "securityGroups:*:test:us-west-1") >> {
+    _ * providerCache.filterIdentifiers("securityGroups", "securityGroups:*:test:us-west-1") >> {
       return [
         "securityGroups:foo:test:us-west-1",
         "securityGroups:bar:test:us-west-1"
@@ -72,13 +68,11 @@ class CacheExecutionSpec extends Specification {
     cacheExecution.storeAgentResult(cachingAgent, result)
 
     then:
-    1 * cachingAgent.getProvidedDataTypes() >> {
-      return [
-        AUTHORITATIVE.forType("securityGroups")
-      ]
+    _ * cachingAgent.getDataTypes() >> {
+      return CachingAgentDataTypes.builder().authoritativeTypes("securityGroups").build()
     }
-    1 * cachingAgent.getCacheKeyPatterns() >> { return ImmutableMap.of() }
-    1 * providerRegistry.getProviderCache(_) >> { return providerCache }
+    _ * cachingAgent.getCacheKeyPatterns() >> { return ImmutableMap.of() }
+    _ * providerRegistry.getProviderCache(_) >> { return providerCache }
 
     result.evictions.isEmpty()
   }

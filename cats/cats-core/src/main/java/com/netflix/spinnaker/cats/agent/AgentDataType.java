@@ -49,4 +49,8 @@ public class AgentDataType {
   public Authority getAuthority() {
     return authority;
   }
+
+  public boolean isAuthoritative() {
+    return authority.equals(Authority.AUTHORITATIVE);
+  }
 }

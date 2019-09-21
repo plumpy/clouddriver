@@ -16,7 +16,10 @@
 
 package com.netflix.spinnaker.cats.agent;
 
+import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
+
 import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableSetMultimap;
 import com.netflix.spinnaker.cats.cache.AgentIntrospection;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.CacheIntrospectionStore;
@@ -25,7 +28,6 @@ import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderRegistry;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -42,8 +44,23 @@ public interface CachingAgent extends Agent {
   /**
    * @return the data types this Agent returns
    * @see com.netflix.spinnaker.cats.agent.AgentDataType.Authority
+   * @deprecated use {@link #getDataTypes()}. All callers of this method have been migrated, so new
+   *     implementations of this interface should implement that method and throw {@link
+   *     UnsupportedOperationException} here.
    */
+  @Deprecated
   Collection<AgentDataType> getProvidedDataTypes();
+
+  default CachingAgentDataTypes getDataTypes() {
+    ImmutableSetMultimap<Boolean, String> typesByAuthoritative =
+        getProvidedDataTypes().stream()
+            .collect(
+                toImmutableSetMultimap(AgentDataType::isAuthoritative, AgentDataType::getTypeName));
+    return CachingAgentDataTypes.builder()
+        .authoritativeTypes(typesByAuthoritative.get(true))
+        .informativeTypes(typesByAuthoritative.get(false))
+        .build();
+  }
 
   /**
    * Triggered by an AgentScheduler to tell this Agent to load its data.
@@ -88,13 +105,7 @@ public interface CachingAgent extends Agent {
     public void storeAgentResult(Agent agent, CacheResult result) {
       CachingAgent cachingAgent = (CachingAgent) agent;
       ProviderCache cache = providerRegistry.getProviderCache(cachingAgent.getProviderName());
-      Collection<AgentDataType> providedTypes = cachingAgent.getProvidedDataTypes();
-      Collection<String> authoritative = new HashSet<>(providedTypes.size());
-      for (AgentDataType type : providedTypes) {
-        if (type.getAuthority() == AgentDataType.Authority.AUTHORITATIVE) {
-          authoritative.add(type.getTypeName());
-        }
-      }
+      Set<String> authoritative = cachingAgent.getDataTypes().getAuthoritativeTypes();
 
       Map<String, String> cacheKeyPatterns = cachingAgent.getCacheKeyPatterns();
       for (String type : authoritative) {

@@ -19,7 +19,6 @@ package com.netflix.spinnaker.clouddriver.cloudfoundry.cache;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.FULL;
 import static com.netflix.spinnaker.clouddriver.cloudfoundry.cache.CacheRepository.Detail.NAMES_ONLY;
 import static java.util.Collections.*;
-import static java.util.stream.Collectors.toList;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Matchers.any;
 import static org.mockito.Matchers.anyCollectionOf;
@@ -27,7 +26,6 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 
 import com.netflix.spectator.api.Registry;
-import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.mem.InMemoryCache;
 import com.netflix.spinnaker.cats.provider.DefaultProviderCache;
@@ -38,7 +36,7 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Routes;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundryServerGroupCachingAgent;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
-import java.util.List;
+import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -100,8 +98,7 @@ class CacheRepositoryTest {
         new CloudFoundryServerGroupCachingAgent("devaccount", client, mock(Registry.class));
 
     CacheResult result = agent.loadData(providerCache);
-    List<String> authoritativeTypes =
-        agent.getProvidedDataTypes().stream().map(AgentDataType::getTypeName).collect(toList());
+    Set<String> authoritativeTypes = agent.getDataTypes().getAuthoritativeTypes();
     cache.putCacheResult(agent.getAgentType(), authoritativeTypes, result);
   }
 

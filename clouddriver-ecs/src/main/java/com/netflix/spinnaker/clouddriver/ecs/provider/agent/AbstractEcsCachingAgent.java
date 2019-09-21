@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.ecs.provider.agent;
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.ECS_CLUSTERS;
 import static com.netflix.spinnaker.clouddriver.ecs.cache.Keys.Namespace.IAM_ROLE;
 
@@ -25,7 +24,6 @@ import com.amazonaws.services.ecs.AmazonECS;
 import com.amazonaws.services.ecs.model.ListClustersRequest;
 import com.amazonaws.services.ecs.model.ListClustersResult;
 import com.google.common.base.CaseFormat;
-import com.netflix.spinnaker.cats.agent.AgentDataType;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgent;
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
@@ -141,10 +139,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
    * @return Key namespace.
    */
   String getAuthoritativeKeyName() {
-    Collection<AgentDataType> authoritativeNamespaces =
-        getProvidedDataTypes().stream()
-            .filter(agentDataType -> agentDataType.getAuthority().equals(AUTHORITATIVE))
-            .collect(Collectors.toSet());
+    Collection<String> authoritativeNamespaces = getDataTypes().getAuthoritativeTypes();
 
     if (authoritativeNamespaces.size() != 1) {
       throw new RuntimeException(
@@ -153,7 +148,7 @@ abstract class AbstractEcsCachingAgent<T> implements CachingAgent {
               + " authoritative key namespace were given.");
     }
 
-    return authoritativeNamespaces.iterator().next().getTypeName();
+    return authoritativeNamespaces.iterator().next();
   }
 
   CacheResult buildCacheResult(

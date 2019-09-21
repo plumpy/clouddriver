@@ -3,6 +3,9 @@ dependencies {
   implementation "com.fasterxml.jackson.core:jackson-annotations"
   implementation "org.codehaus.groovy:groovy-all"
   implementation "com.google.guava:guava"
+  testImplementation "org.assertj:assertj-core"
+  testImplementation "org.junit.jupiter:junit-jupiter-api"
+  testImplementation "org.junit.platform:junit-platform-runner"
 
   compileOnly "org.projectlombok:lombok"
   annotationProcessor "org.projectlombok:lombok"

@@ -16,7 +16,6 @@
 
 package com.netflix.spinnaker.clouddriver.google.provider.agent;
 
-import static com.google.common.collect.ImmutableSet.toImmutableSet;
 import static com.google.common.collect.Iterables.getOnlyElement;
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.APPLICATIONS;
 import static com.netflix.spinnaker.clouddriver.google.cache.Keys.Namespace.CLUSTERS;
@@ -37,8 +36,6 @@ import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.netflix.spectator.api.DefaultRegistry;
-import com.netflix.spinnaker.cats.agent.AgentDataType;
-import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -476,11 +473,7 @@ final class GoogleZonalServerGroupCachingAgentTest {
       ProviderCache providerCache,
       GoogleZonalServerGroupCachingAgent cachingAgent) {
 
-    ImmutableSet<String> authoritativeTypes =
-        cachingAgent.getProvidedDataTypes().stream()
-            .filter(type -> type.getAuthority().equals(Authority.AUTHORITATIVE))
-            .map(AgentDataType::getTypeName)
-            .collect(toImmutableSet());
+    ImmutableSet<String> authoritativeTypes = cachingAgent.getDataTypes().getAuthoritativeTypes();
     providerCache.putCacheResult(cachingAgent.getAgentType(), authoritativeTypes, cacheResult);
   }
 
