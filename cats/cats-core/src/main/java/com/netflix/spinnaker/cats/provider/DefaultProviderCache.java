@@ -16,6 +16,13 @@
 
 package com.netflix.spinnaker.cats.provider;
 
+import static com.google.common.collect.ImmutableSet.toImmutableSet;
+
+import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.SetMultimap;
+import com.google.common.collect.Sets;
+import com.google.common.collect.Sets.SetView;
 import com.netflix.spinnaker.cats.agent.CacheResult;
 import com.netflix.spinnaker.cats.agent.CachingAgentDataTypes;
 import com.netflix.spinnaker.cats.cache.CacheData;
@@ -131,35 +138,36 @@ public class DefaultProviderCache implements ProviderCache {
   @Override
   public void putCacheResult(
       String sourceAgentType, CachingAgentDataTypes agentDataTypes, CacheResult cacheResult) {
+
     Set<String> allTypes = new HashSet<>(cacheResult.getCacheResults().keySet());
     allTypes.addAll(agentDataTypes.getAuthoritativeTypes());
     allTypes.addAll(cacheResult.getEvictions().keySet());
     validateTypes(allTypes);
 
-    Map<String, Collection<String>> evictions = new HashMap<>();
+    SetMultimap<String, String> evictionsByType = HashMultimap.create();
+
+    // We add all the evictions first, then remove those for which data has been provided in the
+    // CacheResult.
+    cacheResult.getEvictions().forEach(evictionsByType::putAll);
+    for (String type : agentDataTypes.getAuthoritativeTypes()) {
+      Set<String> existingIds = getExistingSourceIdentifiers(type, sourceAgentType);
+      Set<String> incomingIds =
+          cacheResult.getCacheResults().getOrDefault(type, ImmutableSet.of()).stream()
+              .map(CacheData::getId)
+              .collect(toImmutableSet());
+      SetView<String> missingIds = Sets.difference(existingIds, incomingIds);
+      evictionsByType.putAll(type, missingIds);
+    }
 
     for (String type : allTypes) {
-      final Collection<String> previousSet;
-      if (agentDataTypes.getAuthoritativeTypes().contains(type)) {
-        previousSet = getExistingSourceIdentifiers(type, sourceAgentType);
-      } else {
-        previousSet = new HashSet<>();
-      }
       if (cacheResult.getCacheResults().containsKey(type)) {
-        cacheDataType(type, sourceAgentType, cacheResult.getCacheResults().get(type));
-        for (CacheData data : cacheResult.getCacheResults().get(type)) {
-          previousSet.remove(data.getId());
-        }
-      }
-      if (cacheResult.getEvictions().containsKey(type)) {
-        previousSet.addAll(cacheResult.getEvictions().get(type));
-      }
-      if (!previousSet.isEmpty()) {
-        evictions.put(type, previousSet);
+        Collection<CacheData> cacheData = cacheResult.getCacheResults().get(type);
+        cacheDataType(type, sourceAgentType, cacheData);
+        cacheData.forEach(data -> evictionsByType.remove(type, data.getId()));
       }
     }
 
-    for (Map.Entry<String, Collection<String>> eviction : evictions.entrySet()) {
+    for (Map.Entry<String, Collection<String>> eviction : evictionsByType.asMap().entrySet()) {
       evictDeletedItems(eviction.getKey(), eviction.getValue());
     }
   }
@@ -209,17 +217,14 @@ public class DefaultProviderCache implements ProviderCache {
     return Collections.unmodifiableCollection(response);
   }
 
-  private Collection<String> getExistingSourceIdentifiers(String type, String sourceAgentType) {
+  private Set<String> getExistingSourceIdentifiers(String type, String sourceAgentType) {
     CacheData all =
         backingStore.get(type, ALL_ID, RelationshipCacheFilter.include(sourceAgentType));
     if (all == null) {
       return new HashSet<>();
     }
-    Collection<String> relationship = all.getRelationships().get(sourceAgentType);
-    if (relationship == null) {
-      return new HashSet<>();
-    }
-    return relationship;
+    return ImmutableSet.copyOf(
+        all.getRelationships().getOrDefault(sourceAgentType, ImmutableSet.of()));
   }
 
   private void cacheDataType(String type, String sourceAgentType, Collection<CacheData> items) {
