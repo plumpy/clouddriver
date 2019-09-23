@@ -16,5 +16,13 @@
 
 package com.netflix.spinnaker.cats.provider
 
-class DefaultProviderCacheSpec extends ProviderCacheSpec {
+import com.netflix.spinnaker.cats.mem.InMemoryCache
+
+class DefaultProviderCacheSpec extends ProviderCacheSpec<DefaultProviderCache> {
+
+  @Override
+  DefaultProviderCache getSubject() {
+    backingStore = new InMemoryCache()
+    new DefaultProviderCache(backingStore)
+  }
 }

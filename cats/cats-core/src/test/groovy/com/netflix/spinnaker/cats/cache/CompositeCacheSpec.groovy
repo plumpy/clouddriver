@@ -18,21 +18,21 @@ package com.netflix.spinnaker.cats.cache
 
 import com.netflix.spinnaker.cats.mem.InMemoryCache
 
-class CompositeCacheSpec extends CacheSpec {
+class CompositeCacheSpec extends CacheSpec<CompositeCache> {
 
   WriteableCache c1
   WriteableCache c2
 
   @Override
-  Cache getSubject() {
+  CompositeCache getSubject() {
     c1 = new InMemoryCache()
     c2 = new InMemoryCache()
     new CompositeCache(Arrays.asList(c1, c2))
   }
 
   @Override
-  void populateOne(String type, String id, CacheData cacheData = new DefaultCacheData(id, [id: id], [:])) {
-    c1.merge(type, cacheData)
+  void populateOne(String type, String id, CacheData data) {
+    c1.merge(type, data)
   }
 
   def "attributes are merged from both caches"() {

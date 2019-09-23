@@ -16,24 +16,24 @@
 
 package com.netflix.spinnaker.cats.cache
 
+
 import spock.lang.Specification
 import spock.lang.Subject
 import spock.lang.Unroll
 
-abstract class CacheSpec extends Specification {
+abstract class CacheSpec<T extends Cache> extends Specification {
 
   @Subject
-  Cache cache
+  T cache
 
   def setup() {
     cache = getSubject()
   }
 
-  abstract Cache getSubject()
+  abstract T getSubject()
 
-  void populateOne(String type, String id, CacheData data = createData(id)) {
-    ((WriteableCache) cache).merge(type, data)
-  }
+  /** Add an item to the cache. This should not remove any existing items. */
+  abstract void populateOne(String type, String id, CacheData data = createData(id))
 
   CacheData createData(String id, Map attributes = [id: id], Map relationships = [:]) {
     new DefaultCacheData(id, attributes, relationships)

@@ -16,11 +16,7 @@
 
 package com.netflix.spinnaker.cats.cache
 
-abstract class WriteableCacheSpec extends CacheSpec {
-
-  WriteableCache getCache() {
-    super.cache as WriteableCache
-  }
+abstract class WriteableCacheSpec<T extends WriteableCache> extends CacheSpec<T> {
 
   def 'merge creates a new value'() {
     when:
@@ -212,5 +208,9 @@ abstract class WriteableCacheSpec extends CacheSpec {
 
     then:
     noExceptionThrown()
+  }
+
+  void populateOne(String type, String id, CacheData data) {
+    cache.merge(type, data)
   }
 }

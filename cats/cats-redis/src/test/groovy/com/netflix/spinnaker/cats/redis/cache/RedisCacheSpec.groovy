@@ -18,9 +18,7 @@ package com.netflix.spinnaker.cats.redis.cache
 
 import com.fasterxml.jackson.annotation.JsonInclude
 import com.fasterxml.jackson.databind.ObjectMapper
-import com.netflix.spinnaker.cats.cache.Cache
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
-import com.netflix.spinnaker.cats.cache.WriteableCache
 import com.netflix.spinnaker.cats.cache.WriteableCacheSpec
 import com.netflix.spinnaker.cats.redis.cache.RedisCache.CacheMetrics
 import com.netflix.spinnaker.kork.jedis.EmbeddedRedis
@@ -31,7 +29,7 @@ import spock.lang.AutoCleanup
 import spock.lang.Shared
 import spock.lang.Unroll
 
-class RedisCacheSpec extends WriteableCacheSpec {
+class RedisCacheSpec extends WriteableCacheSpec<RedisCache> {
   static int MAX_MSET_SIZE = 2
   static int MAX_MERGE_COUNT = 1
 
@@ -43,7 +41,7 @@ class RedisCacheSpec extends WriteableCacheSpec {
   EmbeddedRedis embeddedRedis
 
   @Override
-  Cache getSubject() {
+  RedisCache getSubject() {
     if (!embeddedRedis) {
       embeddedRedis = EmbeddedRedis.embed()
     }
@@ -126,7 +124,7 @@ class RedisCacheSpec extends WriteableCacheSpec {
 
   def 'verify MSET chunking behavior (> MAX_MSET_SIZE)'() {
     setup:
-    ((WriteableCache) cache).mergeAll('foo', [createData('bar'), createData('baz'), createData('bam')])
+    cache.mergeAll('foo', [createData('bar'), createData('baz'), createData('bam')])
 
     expect:
     cache.getIdentifiers('foo').sort() == ['bam', 'bar', 'baz']
@@ -145,20 +143,20 @@ class RedisCacheSpec extends WriteableCacheSpec {
     def data = createData('blerp', [a: 'b'])
 
     when: //initial write
-    ((WriteableCache) cache).merge('foo', data)
+    cache.merge('foo', data)
 
     then:
     1 * cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 1, 1, 1, 0,)
 
     when: //second write, hash matches
-    ((WriteableCache) cache).merge('foo', data)
+    cache.merge('foo', data)
 
     then:
     1 * cacheMetrics.merge('test', 'foo', 1, 0, 0, 1, 0, 0, 0, 0, 0, 0)
 
     when: //third write, disable hashing
     pool.resource.withCloseable { Jedis j -> j.set('test:foo:hashes.disabled', 'true') }
-    ((WriteableCache) cache).merge('foo', data)
+    cache.merge('foo', data)
 
     then:
     1 * cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 1, 1, 1, 0)
@@ -169,13 +167,13 @@ class RedisCacheSpec extends WriteableCacheSpec {
     def data = createData('blerp', [a: 'b'])
 
     when:
-    ((WriteableCache) cache).merge('foo', data)
+    cache.merge('foo', data)
 
     then:
     1 * cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 1, 1, 1, 0)
 
     when:
-    ((WriteableCache) cache).merge('foo', data)
+    cache.merge('foo', data)
 
     then:
     1 * cacheMetrics.merge('test', 'foo', 1, 0, 0, 1, 0, 0, 0, 0, 0, 0)

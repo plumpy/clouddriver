@@ -21,7 +21,7 @@ import java.time.Clock
 import java.time.Instant
 import java.time.ZoneId
 
-class SqlCacheSpec extends WriteableCacheSpec {
+class SqlCacheSpec extends WriteableCacheSpec<SqlCache> {
 
   @Shared
   DSLContext context
@@ -36,10 +36,10 @@ class SqlCacheSpec extends WriteableCacheSpec {
   def 'should handle invalid type'() {
     given:
     def data = createData('blerp', [a: 'b'])
-    ((SqlCache) cache).merge('foo.bar', data)
+    cache.merge('foo.bar', data)
 
     when:
-    def retrieved = ((SqlCache) cache).getAll('foo.bar')
+    def retrieved = cache.getAll('foo.bar')
 
     then:
     retrieved.size() == 1
@@ -51,28 +51,28 @@ class SqlCacheSpec extends WriteableCacheSpec {
     def data = createData('blerp', [a: 'b'])
 
     when:
-    ((SqlCache) cache).merge('foo', data)
+    cache.merge('foo', data)
 
     then:
-    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 0)
+    1 * cache.cacheMetrics.merge('test', 'foo', 1, 1, 0, 0, 1, 1, 0)
 
     when:
-    ((SqlCache) cache).merge('foo', data)
+    cache.merge('foo', data)
 
     then:
     // SqlCacheMetrics currently sets items to # of items stored. The redis impl
     // sets this to # of items passed to merge, regardless of how many are actually stored
     // after deduplication. TODO: Having both metrics would be nice.
-    1 * ((SqlCache) cache).cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0)
+    1 * cache.cacheMetrics.merge('test', 'foo', 1, 0, 0, 0, 1, 0, 0)
   }
 
   def 'all items are stored and retrieved when larger than sql chunk sizes'() {
     given:
     def data = (1..10).collect { createData("fnord-$it") }
-    ((SqlCache) cache).mergeAll('foo', data)
+    cache.mergeAll('foo', data)
 
     when:
-    def retrieved = ((SqlCache) cache).getAll('foo')
+    def retrieved = cache.getAll('foo')
 
     then:
     retrieved.size() == 10
@@ -82,8 +82,8 @@ class SqlCacheSpec extends WriteableCacheSpec {
   @Unroll
   def 'generates where clause based on cacheFilters'() {
     when:
-    def relPrefixes = ((SqlCache) cache).getRelationshipFilterPrefixes(filter)
-    def where = ((SqlCache) cache).getRelWhere(relPrefixes, queryPrefix)
+    def relPrefixes = cache.getRelationshipFilterPrefixes(filter)
+    def where = cache.getRelWhere(relPrefixes, queryPrefix)
 
     then:
     where == expected
@@ -115,7 +115,7 @@ class SqlCacheSpec extends WriteableCacheSpec {
   }
 
   @Override
-  Cache getSubject() {
+  SqlCache getSubject() {
     def mapper = new ObjectMapper()
     def clock = new Clock.FixedClock(Instant.EPOCH, ZoneId.of("UTC"))
     def sqlRetryProperties = new SqlRetryProperties(new RetryProperties(1, 10), new RetryProperties(1, 10))
@@ -141,5 +141,4 @@ class SqlCacheSpec extends WriteableCacheSpec {
       new SqlConstraints()
     )
   }
-
 }

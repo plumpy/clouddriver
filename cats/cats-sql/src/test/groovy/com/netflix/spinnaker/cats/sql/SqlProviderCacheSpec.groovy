@@ -26,7 +26,7 @@ import java.time.Instant
 import java.time.ZoneId
 
 
-class SqlProviderCacheSpec extends ProviderCacheSpec {
+class SqlProviderCacheSpec extends ProviderCacheSpec<SqlProviderCache> {
 
   @Shared
   DSLContext context
@@ -41,12 +41,7 @@ class SqlProviderCacheSpec extends ProviderCacheSpec {
   }
 
   @Override
-  SqlProviderCache getDefaultProviderCache() {
-    getCache() as SqlProviderCache
-  }
-
-  @Override
-  Cache getSubject() {
+  SqlProviderCache getSubject() {
     def mapper = new ObjectMapper()
     def clock = new Clock.FixedClock(Instant.EPOCH, ZoneId.of("UTC"))
     def sqlRetryProperties = new SqlRetryProperties(new RetryProperties(1, 10), new RetryProperties(1, 10))
@@ -168,7 +163,6 @@ class SqlProviderCacheSpec extends ProviderCacheSpec {
   }
 
   void addInformative(String type, String id, CacheData cacheData = createData(id)) {
-    defaultProviderCache.putCacheResult('testAgent', ['informative'], new DefaultCacheResult((type): [cacheData]))
+    cache.putCacheResult('testAgent', ['informative'], new DefaultCacheResult((type): [cacheData]))
   }
-
 }

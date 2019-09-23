@@ -18,44 +18,35 @@ package com.netflix.spinnaker.cats.provider
 
 import com.netflix.spinnaker.cats.agent.CacheResult
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
-import com.netflix.spinnaker.cats.cache.*
-import com.netflix.spinnaker.cats.mem.InMemoryCache
-import com.netflix.spinnaker.cats.provider.DefaultProviderCache
+import com.netflix.spinnaker.cats.cache.CacheData
+import com.netflix.spinnaker.cats.cache.CacheSpec
+import com.netflix.spinnaker.cats.cache.DefaultCacheData
+import com.netflix.spinnaker.cats.cache.WriteableCache
 
-abstract class ProviderCacheSpec extends CacheSpec {
+abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
 
   WriteableCache backingStore
 
-  @Override
-  Cache getSubject() {
-    backingStore = new InMemoryCache()
-    new DefaultProviderCache(backingStore)
-  }
-
-  void populateOne(String type, String id, CacheData cacheData = createData(id)) {
-    defaultProviderCache.putCacheResult('testAgent', [], new DefaultCacheResult((type): [cacheData]))
-  }
-
-  ProviderCache getDefaultProviderCache() {
-    getCache() as DefaultProviderCache
+  void populateOne(String type, String id, CacheData data) {
+    cache.putCacheResult('testAgent', [], new DefaultCacheResult((type): [data]))
   }
 
   def 'explicit evictions are removed from the cache'() {
     setup:
     String agent = 'agent'
     CacheResult result = new DefaultCacheResult(test: [new DefaultCacheData('id', [id: 'id'], [:])])
-    defaultProviderCache.putCacheResult(agent, [], result)
+    cache.putCacheResult(agent, [], result)
 
     when:
-    def data = defaultProviderCache.get('test', 'id')
+    def data = cache.get('test', 'id')
 
     then:
     data != null
     data.id == 'id'
 
     when:
-    defaultProviderCache.putCacheResult(agent, [], new DefaultCacheResult([:], [test: ['id']]))
-    data = defaultProviderCache.get('test', 'id')
+    cache.putCacheResult(agent, [], new DefaultCacheResult([:], [test: ['id']]))
+    data = cache.get('test', 'id')
 
     then:
     data == null
@@ -67,11 +58,11 @@ abstract class ProviderCacheSpec extends CacheSpec {
     CacheResult testUsEast1 = buildCacheResult('test', 'us-east-1')
     String usWest2Agent = 'AwsProvider:test/us-west-2/ClusterCachingAgent'
     CacheResult testUsWest2 = buildCacheResult('test', 'us-west-2')
-    defaultProviderCache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
-    defaultProviderCache.putCacheResult(usWest2Agent, ['serverGroup', 'cluster', 'application'], testUsWest2)
+    cache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
+    cache.putCacheResult(usWest2Agent, ['serverGroup', 'cluster', 'application'], testUsWest2)
 
     when:
-    def app = defaultProviderCache.get('application', 'testapp')
+    def app = cache.get('application', 'testapp')
 
     then:
     app.attributes.accountName == 'test'
@@ -84,11 +75,11 @@ abstract class ProviderCacheSpec extends CacheSpec {
     CacheResult testUsEast1 = buildCacheResult('test', 'us-east-1')
     String usWest2Agent = 'AwsProvider:test/us-west-2/ClusterCachingAgent'
     CacheResult testUsWest2 = buildCacheResult('test', 'us-west-2')
-    defaultProviderCache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
-    defaultProviderCache.putCacheResult(usWest2Agent, ['serverGroup', 'cluster', 'application'], testUsWest2)
+    cache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
+    cache.putCacheResult(usWest2Agent, ['serverGroup', 'cluster', 'application'], testUsWest2)
 
     when:
-    def app = defaultProviderCache.get('application', 'testapp')
+    def app = cache.get('application', 'testapp')
 
     then:
     app.attributes.accountName == 'test'
@@ -96,8 +87,8 @@ abstract class ProviderCacheSpec extends CacheSpec {
 
     when:
     testUsEast1 = buildCacheResult('test', 'us-east-1', 'v002')
-    defaultProviderCache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
-    app = defaultProviderCache.get('application', 'testapp')
+    cache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
+    app = cache.get('application', 'testapp')
 
     then:
     app.relationships.serverGroup.sort() == ['test/us-east-1/testapp-test-v002', 'test/us-west-2/testapp-test-v001']
@@ -108,17 +99,17 @@ abstract class ProviderCacheSpec extends CacheSpec {
     setup:
     String usEast1Agent = 'AwsProvider:test/us-east-1/ClusterCachingAgent'
     CacheResult testUsEast1 = buildCacheResult('test', 'us-east-1')
-    defaultProviderCache.putCacheResult(usEast1Agent, ['serverGroup'], testUsEast1)
+    cache.putCacheResult(usEast1Agent, ['serverGroup'], testUsEast1)
 
     when:
-    def sg = defaultProviderCache.get('serverGroup', 'test/us-east-1/testapp-test-v001')
+    def sg = cache.get('serverGroup', 'test/us-east-1/testapp-test-v001')
 
     then:
     sg != null
 
     when:
-    defaultProviderCache.evictDeletedItems('serverGroup', ['test/us-east-1/testapp-test-v001'])
-    sg = defaultProviderCache.get('serverGroup', 'test/us-east-1/testapp-test-v001')
+    cache.evictDeletedItems('serverGroup', ['test/us-east-1/testapp-test-v001'])
+    sg = cache.get('serverGroup', 'test/us-east-1/testapp-test-v001')
 
     then:
     sg == null
