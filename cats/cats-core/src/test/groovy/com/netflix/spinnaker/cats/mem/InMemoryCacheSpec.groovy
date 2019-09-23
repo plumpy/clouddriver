@@ -20,8 +20,8 @@ import com.netflix.spinnaker.cats.cache.WriteableCacheSpec
 
 class InMemoryCacheSpec extends WriteableCacheSpec {
 
-    @Override
-    InMemoryCache getSubject() {
-        new InMemoryCache()
-    }
+  @Override
+  InMemoryCache getSubject() {
+    new InMemoryCache()
+  }
 }

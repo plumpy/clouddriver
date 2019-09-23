@@ -22,126 +22,126 @@ import spock.lang.Unroll
 
 abstract class CacheSpec extends Specification {
 
-    @Subject
-    Cache cache
+  @Subject
+  Cache cache
 
-    def setup() {
-        cache = getSubject()
+  def setup() {
+    cache = getSubject()
+  }
+
+  abstract Cache getSubject()
+
+  void populateOne(String type, String id, CacheData data = createData(id)) {
+    ((WriteableCache) cache).merge(type, data)
+  }
+
+  CacheData createData(String id, Map attributes = [id: id], Map relationships = [:]) {
+    new DefaultCacheData(id, attributes, relationships)
+  }
+
+  def 'empty cache behaviour'() {
+    expect:
+    cache.get('foo', 'bar') == null
+    cache.getAll('foo') != null
+    cache.getAll('foo').isEmpty()
+  }
+
+  def 'existing value behaviour'() {
+    setup:
+    populateOne('foo', 'bar')
+
+    expect:
+    cache.get('foo', 'bar') != null
+    cache.getAll('foo').size() == 1
+    cache.getAll('foo').first().id == 'bar'
+  }
+
+  def 'identifiers behaviour'() {
+    setup:
+    populateOne('foo', 'bar')
+    populateOne('foo', 'baz')
+
+    expect:
+    cache.getIdentifiers('foo').sort() == ['bar', 'baz']
+  }
+
+  def 'existingIdentifiers behavior'() {
+    given:
+    def writtenIds = ['this', 'is', 'not', 'a', 'test']
+    def idsToCheck = ['foo', 'bar', 'test', 'baz', 'this']
+
+    for (String id : writtenIds) {
+      populateOne('foo', id)
     }
 
-    abstract Cache getSubject()
+    when:
+    def existingIds = cache.existingIdentifiers('foo', idsToCheck)
 
-    void populateOne(String type, String id, CacheData data = createData(id)) {
-        ((WriteableCache) cache).merge(type, data)
+    then:
+    existingIds.sort() == ['test', 'this']
+  }
+
+  def 'filterIdentifiers behaviour'() {
+    setup:
+    for (String id : identifiers) {
+      populateOne('foo', id)
     }
 
-    CacheData createData(String id, Map attributes = [id: id], Map relationships = [:]) {
-        new DefaultCacheData(id, attributes, relationships)
-    }
+    expect:
+    cache.filterIdentifiers('foo', filter).toSet() == expected as Set
 
-    def 'empty cache behaviour'() {
-        expect:
-        cache.get('foo', 'bar') == null
-        cache.getAll('foo') != null
-        cache.getAll('foo').isEmpty()
-    }
+    where:
+    filter                  | expected
+    '*TEST*'                | ['blaTEST', 'blaTESTbla', 'TESTbla']
+    'bla*'                  | ['blaTEST', 'blaTESTbla', 'blaPest', 'blaFEST']
+    'bla[TF]EST'            | ['blaTEST', 'blaFEST']
+    'bla????'               | ['blaTEST', 'blaPest', 'blaFEST']
+    '??a[FTP][Ee][Ss][Tt]*' | ['blaTEST', 'blaTESTbla', 'blaPest', 'blaFEST']
 
-    def 'existing value behaviour'() {
-        setup:
-        populateOne('foo', 'bar')
+    identifiers = ['blaTEST', 'TESTbla', 'blaTESTbla', 'blaPest', 'blaFEST']
+  }
 
-        expect:
-        cache.get('foo', 'bar') != null
-        cache.getAll('foo').size() == 1
-        cache.getAll('foo').first().id == 'bar'
-    }
+  def 'can getAll empty id collection'() {
+    when:
+    def results = cache.getAll('foo', [])
 
-    def 'identifiers behaviour'() {
-        setup:
-        populateOne('foo', 'bar')
-        populateOne('foo', 'baz')
+    then:
+    results != null
+    results.isEmpty()
+  }
 
-        expect:
-        cache.getIdentifiers('foo').sort() == ['bar', 'baz']
-    }
+  def 'get by id behaviour'() {
+    setup:
+    populateOne('foo', 'bar')
+    populateOne('foo', 'baz')
 
-    def 'existingIdentifiers behavior'() {
-        given:
-        def writtenIds = ['this', 'is', 'not', 'a', 'test']
-        def idsToCheck = ['foo', 'bar', 'test', 'baz', 'this']
+    when:
+    def results = cache.getAll('foo', 'bar', 'baz', 'doesntexist')
 
-        for (String id : writtenIds) {
-            populateOne('foo', id)
-        }
+    then:
+    results != null
+    results.size() == 2
+    results.find { it.id == 'bar' }
+    results.find { it.id == 'baz' }
+  }
 
-        when:
-        def existingIds = cache.existingIdentifiers('foo', idsToCheck)
+  @Unroll
+  def 'relationship filtering behaviour'() {
+    setup:
+    populateOne('foo', 'bar', createData('bar', [bar: "bar"], [rel1: ["rel1"], rel2: ["rel2"]]))
 
-        then:
-        existingIds.sort() == ['test', 'this']
-    }
+    expect:
+    cache.get('foo', 'bar').relationships.keySet() == ["rel1", "rel2"] as Set
+    cache.get('foo', 'bar', filter).relationships.keySet() == expectedRelationships as Set
 
-    def 'filterIdentifiers behaviour'() {
-        setup:
-        for (String id : identifiers) {
-            populateOne('foo', id)
-        }
+    cache.getAll('foo').iterator().next().relationships.keySet() == ["rel1", "rel2"] as Set
+    cache.getAll('foo', filter).iterator().next().relationships.keySet() == expectedRelationships as Set
 
-        expect:
-        cache.filterIdentifiers('foo', filter).toSet() == expected as Set
-
-        where:
-        filter                  | expected
-        '*TEST*'                | ['blaTEST', 'blaTESTbla', 'TESTbla']
-        'bla*'                  | ['blaTEST', 'blaTESTbla', 'blaPest', 'blaFEST']
-        'bla[TF]EST'            | ['blaTEST', 'blaFEST']
-        'bla????'               | ['blaTEST', 'blaPest', 'blaFEST']
-        '??a[FTP][Ee][Ss][Tt]*' | ['blaTEST', 'blaTESTbla', 'blaPest', 'blaFEST']
-
-        identifiers = ['blaTEST', 'TESTbla', 'blaTESTbla', 'blaPest', 'blaFEST']
-    }
-
-    def 'can getAll empty id collection'() {
-        when:
-        def results = cache.getAll('foo', [])
-
-        then:
-        results != null
-        results.isEmpty()
-    }
-
-    def 'get by id behaviour'() {
-        setup:
-        populateOne('foo', 'bar')
-        populateOne('foo', 'baz')
-
-        when:
-        def results = cache.getAll('foo', 'bar', 'baz', 'doesntexist')
-
-        then:
-        results != null
-        results.size() == 2
-        results.find { it.id == 'bar' }
-        results.find { it.id == 'baz' }
-    }
-
-    @Unroll
-    def 'relationship filtering behaviour'() {
-        setup:
-        populateOne('foo', 'bar', createData('bar', [bar: "bar"], [rel1: ["rel1"], rel2: ["rel2"]]))
-
-        expect:
-        cache.get('foo', 'bar').relationships.keySet() == ["rel1", "rel2"] as Set
-        cache.get('foo', 'bar', filter).relationships.keySet() == expectedRelationships as Set
-
-        cache.getAll('foo').iterator().next().relationships.keySet() == ["rel1", "rel2"] as Set
-        cache.getAll('foo', filter).iterator().next().relationships.keySet() == expectedRelationships as Set
-
-        where:
-        filter                                          || expectedRelationships
-        RelationshipCacheFilter.include("rel1")         || ["rel1"]
-        RelationshipCacheFilter.include("rel1", "rel2") || ["rel1", "rel2"]
-        RelationshipCacheFilter.include("rel3")         || []
-        RelationshipCacheFilter.none()                  || []
-    }
+    where:
+    filter                                          || expectedRelationships
+    RelationshipCacheFilter.include("rel1")         || ["rel1"]
+    RelationshipCacheFilter.include("rel1", "rel2") || ["rel1", "rel2"]
+    RelationshipCacheFilter.include("rel3")         || []
+    RelationshipCacheFilter.none()                  || []
+  }
 }

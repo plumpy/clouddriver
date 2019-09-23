@@ -85,17 +85,17 @@ class RedisCacheSpec extends WriteableCacheSpec {
     cacheData.attributes.test == expected
 
     where:
-    value                      | expected                   | description
-    null                       | null                       | "null"
-    1                          | 1                          | "Integer"
-    2.0f                       | 2.0f                       | "Float"
-    "Bacon"                    | "Bacon"                    | "String"
-    true                       | true                       | "Boolean"
-    ['one', 'two']             | ['one', 'two']             | "Primitive list"
-    [key: 'value', key2: 10]   | [key: 'value', key2: 10]   | "Map"
-    new Bean('value', 10)      | [key: 'value', key2: 10]   | "Java object"
-    [key: 'value', key2: null] | [key: 'value']             | "Map with null"
-    new Bean('value', null)    | [key: 'value']             | "Java object with null"
+    value                      | expected                 | description
+    null                       | null                     | "null"
+    1                          | 1                        | "Integer"
+    2.0f                       | 2.0f                     | "Float"
+    "Bacon"                    | "Bacon"                  | "String"
+    true                       | true                     | "Boolean"
+    ['one', 'two']             | ['one', 'two']           | "Primitive list"
+    [key: 'value', key2: 10]   | [key: 'value', key2: 10] | "Map"
+    new Bean('value', 10)      | [key: 'value', key2: 10] | "Java object"
+    [key: 'value', key2: null] | [key: 'value']           | "Map with null"
+    new Bean('value', null)    | [key: 'value']           | "Java object with null"
   }
 
   @Unroll

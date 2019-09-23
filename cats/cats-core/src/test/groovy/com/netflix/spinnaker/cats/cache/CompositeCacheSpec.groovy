@@ -20,31 +20,31 @@ import com.netflix.spinnaker.cats.mem.InMemoryCache
 
 class CompositeCacheSpec extends CacheSpec {
 
-    WriteableCache c1
-    WriteableCache c2
+  WriteableCache c1
+  WriteableCache c2
 
-    @Override
-    Cache getSubject() {
-        c1 = new InMemoryCache()
-        c2 = new InMemoryCache()
-        new CompositeCache(Arrays.asList(c1, c2))
-    }
+  @Override
+  Cache getSubject() {
+    c1 = new InMemoryCache()
+    c2 = new InMemoryCache()
+    new CompositeCache(Arrays.asList(c1, c2))
+  }
 
-    @Override
-    void populateOne(String type, String id, CacheData cacheData = new DefaultCacheData(id, [id: id], [:])) {
-        c1.merge(type, cacheData)
-    }
+  @Override
+  void populateOne(String type, String id, CacheData cacheData = new DefaultCacheData(id, [id: id], [:])) {
+    c1.merge(type, cacheData)
+  }
 
-    def "attributes are merged from both caches"() {
-        setup:
-        c1.merge('foo', createData('bar', [c1Att: 'c1washere']))
-        c2.merge('foo', createData('bar', [c2Att: 'c2washere']))
+  def "attributes are merged from both caches"() {
+    setup:
+    c1.merge('foo', createData('bar', [c1Att: 'c1washere']))
+    c2.merge('foo', createData('bar', [c2Att: 'c2washere']))
 
-        when:
-        def bar = cache.get('foo', 'bar')
+    when:
+    def bar = cache.get('foo', 'bar')
 
-        then:
-        bar.attributes.c1Att == 'c1washere'
-        bar.attributes.c2Att == 'c2washere'
-    }
+    then:
+    bar.attributes.c1Att == 'c1washere'
+    bar.attributes.c2Att == 'c2washere'
+  }
 }
