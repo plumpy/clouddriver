@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.cats.provider
 
 import com.netflix.spinnaker.cats.agent.CacheResult
+import com.netflix.spinnaker.cats.agent.CachingAgentDataTypes
 import com.netflix.spinnaker.cats.agent.DefaultCacheResult
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheSpec
@@ -28,14 +29,14 @@ abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
   WriteableCache backingStore
 
   void populateOne(String type, String id, CacheData data) {
-    cache.putCacheResult('testAgent', [], new DefaultCacheResult((type): [data]))
+    cache.putCacheResult('testAgent', authoritativeTypes(), new DefaultCacheResult((type): [data]))
   }
 
   def 'explicit evictions are removed from the cache'() {
     setup:
     String agent = 'agent'
     CacheResult result = new DefaultCacheResult(test: [new DefaultCacheData('id', [id: 'id'], [:])])
-    cache.putCacheResult(agent, [], result)
+    cache.putCacheResult(agent, authoritativeTypes(), result)
 
     when:
     def data = cache.get('test', 'id')
@@ -45,7 +46,7 @@ abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
     data.id == 'id'
 
     when:
-    cache.putCacheResult(agent, [], new DefaultCacheResult([:], [test: ['id']]))
+    cache.putCacheResult(agent, authoritativeTypes(), new DefaultCacheResult([:], [test: ['id']]))
     data = cache.get('test', 'id')
 
     then:
@@ -58,8 +59,8 @@ abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
     CacheResult testUsEast1 = buildCacheResult('test', 'us-east-1')
     String usWest2Agent = 'AwsProvider:test/us-west-2/ClusterCachingAgent'
     CacheResult testUsWest2 = buildCacheResult('test', 'us-west-2')
-    cache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
-    cache.putCacheResult(usWest2Agent, ['serverGroup', 'cluster', 'application'], testUsWest2)
+    cache.putCacheResult(usEast1Agent, authoritativeTypes('serverGroup', 'cluster', 'application'), testUsEast1)
+    cache.putCacheResult(usWest2Agent, authoritativeTypes('serverGroup', 'cluster', 'application'), testUsWest2)
 
     when:
     def app = cache.get('application', 'testapp')
@@ -75,8 +76,8 @@ abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
     CacheResult testUsEast1 = buildCacheResult('test', 'us-east-1')
     String usWest2Agent = 'AwsProvider:test/us-west-2/ClusterCachingAgent'
     CacheResult testUsWest2 = buildCacheResult('test', 'us-west-2')
-    cache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
-    cache.putCacheResult(usWest2Agent, ['serverGroup', 'cluster', 'application'], testUsWest2)
+    cache.putCacheResult(usEast1Agent, authoritativeTypes('serverGroup', 'cluster', 'application'), testUsEast1)
+    cache.putCacheResult(usWest2Agent, authoritativeTypes('serverGroup', 'cluster', 'application'), testUsWest2)
 
     when:
     def app = cache.get('application', 'testapp')
@@ -87,7 +88,7 @@ abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
 
     when:
     testUsEast1 = buildCacheResult('test', 'us-east-1', 'v002')
-    cache.putCacheResult(usEast1Agent, ['serverGroup', 'cluster', 'application'], testUsEast1)
+    cache.putCacheResult(usEast1Agent, authoritativeTypes('serverGroup', 'cluster', 'application'), testUsEast1)
     app = cache.get('application', 'testapp')
 
     then:
@@ -99,7 +100,7 @@ abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
     setup:
     String usEast1Agent = 'AwsProvider:test/us-east-1/ClusterCachingAgent'
     CacheResult testUsEast1 = buildCacheResult('test', 'us-east-1')
-    cache.putCacheResult(usEast1Agent, ['serverGroup'], testUsEast1)
+    cache.putCacheResult(usEast1Agent, authoritativeTypes('serverGroup'), testUsEast1)
 
     when:
     def sg = cache.get('serverGroup', 'test/us-east-1/testapp-test-v001')
@@ -113,6 +114,15 @@ abstract class ProviderCacheSpec<T extends ProviderCache> extends CacheSpec<T> {
 
     then:
     sg == null
+  }
+
+  CachingAgentDataTypes authoritativeTypes(String... types) {
+    if (types) {
+      CachingAgentDataTypes.builder().authoritativeTypes(types).build()
+    } else {
+      // CachingAgentDataTypes requires at least one type
+      CachingAgentDataTypes.builder().informativeTypes("noSuchType").build()
+    }
   }
 
   private CacheResult buildCacheResult(String account, String region, String sgVersion = 'v001') {

@@ -1,6 +1,7 @@
 package com.netflix.spinnaker.cats.sql
 
 import com.netflix.spinnaker.cats.agent.CacheResult
+import com.netflix.spinnaker.cats.agent.CachingAgentDataTypes
 import com.netflix.spinnaker.cats.cache.CacheData
 import com.netflix.spinnaker.cats.cache.CacheFilter
 import com.netflix.spinnaker.cats.cache.DefaultCacheData
@@ -159,11 +160,13 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
 
   override fun putCacheResult(
     source: String,
-    authoritativeTypes: MutableCollection<String>,
+    agentDataTypes: CachingAgentDataTypes,
     cacheResult: CacheResult
   ) {
     try {
       MDC.put("agentClass", "$source putCacheResult")
+
+      val authoritativeTypes = agentDataTypes.authoritativeTypes.toMutableSet()
 
       // TODO every source type should have an authoritative agent and every agent should be authoritative for something
       // TODO terrible hack because no AWS agent is authoritative for clusters, fix in ClusterCachingAgent
@@ -246,32 +249,19 @@ class SqlProviderCache(private val backingStore: WriteableCache) : ProviderCache
 
   override fun addCacheResult(
     source: String,
-    authoritativeTypes: MutableCollection<String>,
+    agentDataTypes: CachingAgentDataTypes,
     cacheResult: CacheResult
   ) {
     try {
       MDC.put("agentClass", "$source putCacheResult")
 
-      val cachedTypes = mutableSetOf<String>()
-
-      if (authoritativeTypes.isNotEmpty()) {
-        cacheResult.cacheResults
-          .filter {
-            authoritativeTypes.contains(it.key)
-          }
-          .forEach {
-            cacheDataType(it.key, source, it.value, authoritative = true, cleanup = false)
-            cachedTypes.add(it.key)
-          }
-      }
-
       cacheResult.cacheResults
-        .filter { !cachedTypes.contains(it.key) }
         .forEach {
-          cacheDataType(it.key, source, it.value, authoritative = false, cleanup = false)
+          val authoritative = agentDataTypes.authoritativeTypes.contains(it.key)
+          cacheDataType(it.key, source, it.value, authoritative = authoritative, cleanup = false)
         }
     } finally {
-        MDC.remove("agentClass")
+      MDC.remove("agentClass")
     }
   }
 

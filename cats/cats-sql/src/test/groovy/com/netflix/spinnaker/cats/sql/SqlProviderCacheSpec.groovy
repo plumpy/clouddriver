@@ -163,6 +163,6 @@ class SqlProviderCacheSpec extends ProviderCacheSpec<SqlProviderCache> {
   }
 
   void addInformative(String type, String id, CacheData cacheData = createData(id)) {
-    cache.putCacheResult('testAgent', ['informative'], new DefaultCacheResult((type): [cacheData]))
+    cache.putCacheResult('testAgent', authoritativeTypes('informative'), new DefaultCacheResult((type): [cacheData]))
   }
 }

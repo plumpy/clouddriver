@@ -4,6 +4,7 @@ dependencies {
   implementation project(":cats:cats-core")
   implementation "org.codehaus.groovy:groovy-all"
 
+  implementation "com.google.guava:guava"
   implementation "org.springframework.boot:spring-boot-starter-test"
   implementation "org.spockframework:spock-core"
   implementation "org.spockframework:spock-spring"

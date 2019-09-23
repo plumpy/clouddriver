@@ -54,7 +54,7 @@ class AgentControllerSpec extends Specification {
         0 * _
     }
 
-    def 'should store cache result with correct authoritative'() {
+    def 'should store cache result with correct types'() {
         setup:
         def a = new TestAgent()
         a.authoritative << 'serverGroup'
@@ -77,10 +77,12 @@ class AgentControllerSpec extends Specification {
         sched.runAll()
 
         then:
-        1 * pc.putCacheResult(_ as String, _ as Collection<String>, _ as CacheResult) >> { source, auth, CacheResult res ->
+        1 * pc.putCacheResult(_ as String, _ as CachingAgentDataTypes, _ as CacheResult) >> { source, dataTypes, CacheResult res ->
             assert source == a.agentType
-            assert auth.size() == 1
-            assert auth.contains('serverGroup')
+            assert dataTypes.authoritativeTypes.size() == 1
+            assert dataTypes.authoritativeTypes.contains('serverGroup')
+            assert dataTypes.informativeTypes.size() == 1
+            assert dataTypes.informativeTypes.contains('application')
             assert res.cacheResults.size() == 2
             assert res.cacheResults['serverGroup'].size() == 1
             assert res.cacheResults['application'].size() == 1

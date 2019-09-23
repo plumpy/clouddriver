@@ -38,7 +38,6 @@ import com.google.api.services.compute.model.Metadata;
 import com.google.api.services.compute.model.Metadata.Items;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSet;
 import com.google.common.util.concurrent.MoreExecutors;
 import com.netflix.spectator.api.DefaultRegistry;
 import com.netflix.spinnaker.cats.agent.CacheResult;
@@ -584,8 +583,8 @@ final class GoogleRegionalServerGroupCachingAgentTest {
       ProviderCache providerCache,
       GoogleRegionalServerGroupCachingAgent cachingAgent) {
 
-    ImmutableSet<String> authoritativeTypes = cachingAgent.getDataTypes().getAuthoritativeTypes();
-    providerCache.putCacheResult(cachingAgent.getAgentType(), authoritativeTypes, cacheResult);
+    providerCache.putCacheResult(
+        cachingAgent.getAgentType(), cachingAgent.getDataTypes(), cacheResult);
   }
 
   private static CacheData cacheData(String key) {

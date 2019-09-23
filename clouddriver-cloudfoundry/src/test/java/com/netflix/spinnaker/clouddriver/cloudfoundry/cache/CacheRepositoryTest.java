@@ -36,7 +36,6 @@ import com.netflix.spinnaker.clouddriver.cloudfoundry.client.Routes;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.model.*;
 import com.netflix.spinnaker.clouddriver.cloudfoundry.provider.agent.CloudFoundryServerGroupCachingAgent;
 import com.netflix.spinnaker.clouddriver.model.HealthState;
-import java.util.Set;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -98,8 +97,7 @@ class CacheRepositoryTest {
         new CloudFoundryServerGroupCachingAgent("devaccount", client, mock(Registry.class));
 
     CacheResult result = agent.loadData(providerCache);
-    Set<String> authoritativeTypes = agent.getDataTypes().getAuthoritativeTypes();
-    cache.putCacheResult(agent.getAgentType(), authoritativeTypes, result);
+    cache.putCacheResult(agent.getAgentType(), agent.getDataTypes(), result);
   }
 
   @Test

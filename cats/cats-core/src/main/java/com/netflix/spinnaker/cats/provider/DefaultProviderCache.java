@@ -17,6 +17,7 @@
 package com.netflix.spinnaker.cats.provider;
 
 import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.agent.CachingAgentDataTypes;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.CacheFilter;
 import com.netflix.spinnaker.cats.cache.DefaultCacheData;
@@ -129,9 +130,9 @@ public class DefaultProviderCache implements ProviderCache {
 
   @Override
   public void putCacheResult(
-      String sourceAgentType, Collection<String> authoritativeTypes, CacheResult cacheResult) {
+      String sourceAgentType, CachingAgentDataTypes agentDataTypes, CacheResult cacheResult) {
     Set<String> allTypes = new HashSet<>(cacheResult.getCacheResults().keySet());
-    allTypes.addAll(authoritativeTypes);
+    allTypes.addAll(agentDataTypes.getAuthoritativeTypes());
     allTypes.addAll(cacheResult.getEvictions().keySet());
     validateTypes(allTypes);
 
@@ -139,7 +140,7 @@ public class DefaultProviderCache implements ProviderCache {
 
     for (String type : allTypes) {
       final Collection<String> previousSet;
-      if (authoritativeTypes.contains(type)) {
+      if (agentDataTypes.getAuthoritativeTypes().contains(type)) {
         previousSet = getExistingSourceIdentifiers(type, sourceAgentType);
       } else {
         previousSet = new HashSet<>();
@@ -165,14 +166,12 @@ public class DefaultProviderCache implements ProviderCache {
 
   @Override
   public void addCacheResult(
-      String sourceAgentType, Collection<String> authoritativeTypes, CacheResult cacheResult) {
+      String sourceAgentType, CachingAgentDataTypes agentDataTypes, CacheResult cacheResult) {
     Set<String> allTypes = new HashSet<>(cacheResult.getCacheResults().keySet());
     validateTypes(allTypes);
 
     allTypes.forEach(
-        type -> {
-          cacheDataType(type, sourceAgentType, cacheResult.getCacheResults().get(type));
-        });
+        type -> cacheDataType(type, sourceAgentType, cacheResult.getCacheResults().get(type)));
   }
 
   @Override

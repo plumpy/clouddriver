@@ -19,7 +19,7 @@ package com.netflix.spinnaker.cats.agent;
 import static com.google.common.collect.ImmutableSetMultimap.toImmutableSetMultimap;
 
 import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableSetMultimap;
+import com.google.common.collect.SetMultimap;
 import com.netflix.spinnaker.cats.cache.AgentIntrospection;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.cache.CacheIntrospectionStore;
@@ -43,7 +43,7 @@ import org.slf4j.LoggerFactory;
 public interface CachingAgent extends Agent {
   /**
    * @return the data types this Agent returns
-   * @see com.netflix.spinnaker.cats.agent.AgentDataType.Authority
+   * @see AgentDataType.Authority
    * @deprecated use {@link #getDataTypes()}. All callers of this method have been migrated, so new
    *     implementations of this interface should implement that method and throw {@link
    *     UnsupportedOperationException} here.
@@ -52,7 +52,7 @@ public interface CachingAgent extends Agent {
   Collection<AgentDataType> getProvidedDataTypes();
 
   default CachingAgentDataTypes getDataTypes() {
-    ImmutableSetMultimap<Boolean, String> typesByAuthoritative =
+    SetMultimap<Boolean, String> typesByAuthoritative =
         getProvidedDataTypes().stream()
             .collect(
                 toImmutableSetMultimap(AgentDataType::isAuthoritative, AgentDataType::getTypeName));
@@ -143,9 +143,9 @@ public interface CachingAgent extends Agent {
       }
 
       if (result.isPartialResult()) {
-        cache.addCacheResult(agent.getAgentType(), authoritative, result);
+        cache.addCacheResult(agent.getAgentType(), cachingAgent.getDataTypes(), result);
       } else {
-        cache.putCacheResult(agent.getAgentType(), authoritative, result);
+        cache.putCacheResult(agent.getAgentType(), cachingAgent.getDataTypes(), result);
       }
     }
   }

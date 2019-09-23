@@ -16,11 +16,20 @@
 
 package com.netflix.spinnaker.clouddriver.titus.caching.agents;
 
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.AUTHORITATIVE;
-import static com.netflix.spinnaker.cats.agent.AgentDataType.Authority.INFORMATIVE;
 import static com.netflix.spinnaker.clouddriver.core.provider.agent.Namespace.TARGET_GROUPS;
-import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.*;
-import static java.util.Collections.*;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.APPLICATIONS;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.CLUSTERS;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.HEALTH;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.IMAGES;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.INSTANCES;
+import static com.netflix.spinnaker.clouddriver.titus.caching.Keys.Namespace.SERVER_GROUPS;
+import static java.util.Collections.EMPTY_LIST;
+import static java.util.Collections.EMPTY_SET;
+import static java.util.Collections.emptyList;
+import static java.util.Collections.emptyMap;
+import static java.util.Collections.emptySet;
+import static java.util.Collections.singletonList;
+import static java.util.Collections.unmodifiableSet;
 import static java.util.concurrent.TimeUnit.MILLISECONDS;
 
 import com.amazonaws.services.elasticloadbalancingv2.model.TargetTypeEnum;
@@ -28,13 +37,21 @@ import com.fasterxml.jackson.annotation.JsonCreator;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import com.fasterxml.jackson.core.type.TypeReference;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.google.common.collect.ImmutableSet;
 import com.google.protobuf.util.JsonFormat;
 import com.netflix.frigga.Names;
 import com.netflix.frigga.autoscaling.AutoScalingGroupNameBuilder;
 import com.netflix.spectator.api.Id;
 import com.netflix.spectator.api.Registry;
 import com.netflix.spectator.api.histogram.PercentileTimer;
-import com.netflix.spinnaker.cats.agent.*;
+import com.netflix.spinnaker.cats.agent.Agent;
+import com.netflix.spinnaker.cats.agent.AgentDataType;
+import com.netflix.spinnaker.cats.agent.AgentDataType.Authority;
+import com.netflix.spinnaker.cats.agent.AgentExecution;
+import com.netflix.spinnaker.cats.agent.CacheResult;
+import com.netflix.spinnaker.cats.agent.CachingAgent;
+import com.netflix.spinnaker.cats.agent.CachingAgentDataTypes;
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult;
 import com.netflix.spinnaker.cats.cache.CacheData;
 import com.netflix.spinnaker.cats.provider.ProviderCache;
 import com.netflix.spinnaker.cats.provider.ProviderRegistry;
@@ -53,9 +70,30 @@ import com.netflix.spinnaker.clouddriver.titus.client.TitusRegion;
 import com.netflix.spinnaker.clouddriver.titus.client.model.TaskState;
 import com.netflix.spinnaker.clouddriver.titus.credentials.NetflixTitusCredentials;
 import com.netflix.spinnaker.kork.dynamicconfig.DynamicConfigService;
-import com.netflix.titus.grpc.protogen.*;
-import java.util.*;
-import java.util.concurrent.*;
+import com.netflix.titus.grpc.protogen.Job;
+import com.netflix.titus.grpc.protogen.JobChangeNotification;
+import com.netflix.titus.grpc.protogen.JobStatus;
+import com.netflix.titus.grpc.protogen.ObserveJobsQuery;
+import com.netflix.titus.grpc.protogen.ScalingPolicy;
+import com.netflix.titus.grpc.protogen.ScalingPolicyResult;
+import com.netflix.titus.grpc.protogen.ScalingPolicyStatus;
+import com.netflix.titus.grpc.protogen.Task;
+import com.netflix.titus.grpc.protogen.TaskStatus;
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Map;
+import java.util.Optional;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Executors;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicLong;
 import java.util.stream.Collectors;
@@ -101,16 +139,11 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
                   TaskStatus.TaskState.StartInitiated)
               .collect(Collectors.toSet()));
 
-  private static final Set<AgentDataType> TYPES =
-      unmodifiableSet(
-          Stream.of(
-                  AUTHORITATIVE.forType(SERVER_GROUPS.ns),
-                  AUTHORITATIVE.forType(CLUSTERS.ns),
-                  AUTHORITATIVE.forType(APPLICATIONS.ns),
-                  AUTHORITATIVE.forType(INSTANCES.ns),
-                  INFORMATIVE.forType(IMAGES.ns),
-                  INFORMATIVE.forType(TARGET_GROUPS.ns))
-              .collect(Collectors.toSet()));
+  private static final CachingAgentDataTypes TYPES =
+      CachingAgentDataTypes.builder()
+          .authoritativeTypes(SERVER_GROUPS.ns, CLUSTERS.ns, APPLICATIONS.ns, INSTANCES.ns)
+          .informativeTypes(IMAGES.ns, TARGET_GROUPS.ns)
+          .build();
 
   private static final List<TaskState> DOWN_TASK_STATES =
       Arrays.asList(
@@ -162,6 +195,16 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
 
   @Override
   public Collection<AgentDataType> getProvidedDataTypes() {
+    ImmutableSet.Builder<AgentDataType> types = ImmutableSet.builder();
+    TYPES.getAuthoritativeTypes().stream()
+        .map(Authority.AUTHORITATIVE::forType)
+        .forEach(types::add);
+    TYPES.getInformativeTypes().stream().map(Authority.INFORMATIVE::forType).forEach(types::add);
+    return types.build();
+  }
+
+  @Override
+  public CachingAgentDataTypes getDataTypes() {
     return TYPES;
   }
 
@@ -257,7 +300,8 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
                           state.tasks.keySet().retainAll(state.jobs.keySet());
                           if (state.snapshotComplete) {
                             log.error(
-                                "{} received >1 SNAPSHOTEND events, this is unexpected and may be handled incorrectly",
+                                "{} received >1 SNAPSHOTEND events, this is unexpected and may be"
+                                    + " handled incorrectly",
                                 getAgentType());
                           }
                           state.snapshotComplete = true;
@@ -366,7 +410,8 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
           state.tasks.get(jobId).remove(task);
         } else if (state.snapshotComplete) {
           log.debug(
-              "{} updateTask: task: {} jobId: {} has finished, but task not present in current snapshot set",
+              "{} updateTask: task: {} jobId: {} has finished, but task not present in current"
+                  + " snapshot set",
               getAgentType(),
               task.getId(),
               jobId);
@@ -430,17 +475,11 @@ public class TitusStreamingUpdateAgent implements CustomScheduledAgent, CachingA
 
         CacheResult result = buildCacheResult(state, scalingPolicyResults, allLoadBalancers);
 
-        Collection<String> authoritative =
-            TYPES.stream()
-                .filter(t -> t.getAuthority().equals(AUTHORITATIVE))
-                .map(AgentDataType::getTypeName)
-                .collect(Collectors.toSet());
-
         if (state.savedSnapshot) {
           // Incremental update without implicit evictions
-          cache.addCacheResult(getAgentType(), authoritative, result);
+          cache.addCacheResult(getAgentType(), TYPES, result);
         } else {
-          cache.putCacheResult(getAgentType(), authoritative, result);
+          cache.putCacheResult(getAgentType(), TYPES, result);
         }
 
         // prune jobIdToApp
