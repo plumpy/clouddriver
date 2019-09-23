@@ -19,6 +19,7 @@ package com.netflix.spinnaker.cats.provider;
 import static com.google.common.collect.ImmutableSet.toImmutableSet;
 
 import com.google.common.collect.HashMultimap;
+import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.collect.SetMultimap;
 import com.google.common.collect.Sets;
@@ -139,11 +140,6 @@ public class DefaultProviderCache implements ProviderCache {
   public void putCacheResult(
       String sourceAgentType, CachingAgentDataTypes agentDataTypes, CacheResult cacheResult) {
 
-    Set<String> allTypes = new HashSet<>(cacheResult.getCacheResults().keySet());
-    allTypes.addAll(agentDataTypes.getAuthoritativeTypes());
-    allTypes.addAll(cacheResult.getEvictions().keySet());
-    validateTypes(allTypes);
-
     SetMultimap<String, String> evictionsByType = HashMultimap.create();
 
     // We add all the evictions first, then remove those for which data has been provided in the
@@ -159,12 +155,24 @@ public class DefaultProviderCache implements ProviderCache {
       evictionsByType.putAll(type, missingIds);
     }
 
-    for (String type : allTypes) {
-      if (cacheResult.getCacheResults().containsKey(type)) {
-        Collection<CacheData> cacheData = cacheResult.getCacheResults().get(type);
-        cacheDataType(type, sourceAgentType, cacheData);
-        cacheData.forEach(data -> evictionsByType.remove(type, data.getId()));
-      }
+    for (String type : agentDataTypes.getAllDeclaredTypes()) {
+      Collection<CacheData> cacheData =
+          cacheResult.getCacheResults().getOrDefault(type, ImmutableList.of());
+      cacheDataType(type, sourceAgentType, cacheData);
+      cacheData.forEach(data -> evictionsByType.remove(type, data.getId()));
+    }
+
+    // The only thing actually in here should be the on-demand type. Once CachingAgentDataTypes is
+    // properly populated across all caching providers, we can remove this, at which point data
+    // returned in CacheResults that isn't in CacheResultDataTypes will be ignored.
+    SetView<String> undeclaredTypes =
+        Sets.difference(
+            cacheResult.getCacheResults().keySet(), agentDataTypes.getAllDeclaredTypes());
+    for (String type : undeclaredTypes) {
+      Collection<CacheData> cacheData =
+          cacheResult.getCacheResults().getOrDefault(type, ImmutableList.of());
+      cacheDataType(type, sourceAgentType, cacheData);
+      cacheData.forEach(data -> evictionsByType.remove(type, data.getId()));
     }
 
     for (Map.Entry<String, Collection<String>> eviction : evictionsByType.asMap().entrySet()) {
