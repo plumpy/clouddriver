@@ -147,13 +147,7 @@ public class InMemoryCache implements WriteableCache {
   }
 
   private ConcurrentMap<String, CacheData> getTypeMap(String type) {
-    ConcurrentMap<String, CacheData> newValue = new ConcurrentHashMap<>();
-    ConcurrentMap<String, CacheData> existing = typeMap.putIfAbsent(type, newValue);
-    if (existing == null) {
-      return newValue;
-    }
-
-    return existing;
+    return typeMap.computeIfAbsent(type, key -> new ConcurrentHashMap<>());
   }
 
   private CacheData wrap(CacheData data, CacheFilter cacheFilter) {
@@ -174,13 +168,7 @@ public class InMemoryCache implements WriteableCache {
   }
 
   private CacheData getCacheData(ConcurrentMap<String, CacheData> map, String id) {
-    CacheData newValue = new BackingData(id);
-    CacheData existing = map.putIfAbsent(id, newValue);
-    if (existing == null) {
-      return newValue;
-    }
-
-    return existing;
+    return map.computeIfAbsent(id, BackingData::new);
   }
 
   private void merge(CacheData existing, CacheData update) {
