@@ -16,6 +16,9 @@
 
 package com.netflix.spinnaker.cats.provider
 
+import com.netflix.spinnaker.cats.agent.CachingAgentDataTypes
+import com.netflix.spinnaker.cats.agent.DefaultCacheResult
+import com.netflix.spinnaker.cats.cache.DefaultCacheData
 import com.netflix.spinnaker.cats.mem.InMemoryCache
 
 class DefaultProviderCacheSpec extends ProviderCacheSpec<DefaultProviderCache> {
@@ -24,5 +27,37 @@ class DefaultProviderCacheSpec extends ProviderCacheSpec<DefaultProviderCache> {
   DefaultProviderCache getSubject() {
     backingStore = new InMemoryCache()
     new DefaultProviderCache(backingStore)
+  }
+
+  def 'authoritative types not present in cache result are removed from the backing store'() {
+    setup:
+    String agent = 'agent'
+    def cachingAgentTypes = CachingAgentDataTypes.builder().authoritativeTypes('type').build()
+    cache.putCacheResult(agent, cachingAgentTypes,
+      new DefaultCacheResult(['type': [new DefaultCacheData('id', ['attribute': 'value'], /* relationships= */ [:])]]))
+
+    when:
+    cache.putCacheResult(agent, cachingAgentTypes, new DefaultCacheResult([:]))
+
+    then:
+    cache.get('type', 'id') == null
+    backingStore.get('type', 'id') == null
+    !backingStore.get('type', '_ALL_')?.getRelationships()?.get(agent)
+  }
+
+  def 'informative types not present in cache result remain in the backing store'() {
+    setup:
+    String agent = 'agent'
+    def cachingAgentTypes = CachingAgentDataTypes.builder().informativeTypes('type').build()
+    cache.putCacheResult(agent, cachingAgentTypes,
+      new DefaultCacheResult(['type': [new DefaultCacheData('parent', ['attribute':'value'], /* relationships= */ ['type':{'child'}])]]))
+    cache.putCacheResult(agent, cachingAgentTypes,
+      new DefaultCacheResult(['type': [new DefaultCacheData('child', [:], /* relationships= */ [:])]]))
+
+    when:
+    cache.putCacheResult(agent, cachingAgentTypes, new DefaultCacheResult([:]))
+
+    then:
+    backingStore.get('type', '_ALL_').getRelationships().get(agent).contains('child')
   }
 }
